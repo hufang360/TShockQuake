@@ -57,7 +57,7 @@ namespace Quake
             }
 
             bool isRight;
-            int num;
+            int num = 0;
             switch (args.Parameters[0].ToLowerInvariant())
             {
                 // 帮助
@@ -85,13 +85,9 @@ namespace Quake
                 // 触发大地动
                 case "trigger":
                     if (args.Parameters.Count > 1)
-                    {
                         if (!int.TryParse(args.Parameters[1], out num)) num = 30;
-                    }
                     else
-                    {
                         num = 30;
-                    }
                     ReGenHelper.Trigger(num);
                     return;
 

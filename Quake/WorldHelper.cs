@@ -21,9 +21,22 @@ namespace Quake
 
         private static int worldID = 0;
 
-        /// <summary>
-        /// 备份世界纪录
-        /// </summary>
+        #region 重置
+        public static void Reset()
+        {
+            anglerQuest = 0;
+            anglerQuestFinished = false;
+            anglerWhoFinishedToday.Clear();
+            LunarApocalypseIsUp = false;
+            worldID = 0;
+            Kills.Reset();
+            Sights.Reset();
+            Chats.Reset();
+            status.Clear();
+        }
+        #endregion
+
+        #region 备份世界纪录
         public static void Backup()
         {
             // WorldGen.cs clearWorld
@@ -94,10 +107,9 @@ namespace Quake
                 Chats._chattedWithPlayer.Add(key);
             }
         }
+        #endregion
 
-        /// <summary>
-        /// 恢复世界纪录
-        /// </summary>
+        #region 恢复世界纪录
         public static void Recover()
         {
             bool pop()
@@ -181,27 +193,14 @@ namespace Quake
                     Main.BestiaryTracker.Chats._chattedWithPlayer.Add(key);
             }
 
-            // 复活NPC
-            NPCHelper.Relive();
+            // 进入肉后模式
+            if (Main.hardMode) WorldGen.StartHardmode();
 
             TSPlayer.All.SendData(PacketTypes.WorldInfo);
         }
+        #endregion
 
-        /// <summary>
-        /// 重置
-        /// </summary>
-        public static void Reset()
-        {
-            anglerQuest = 0;
-            anglerQuestFinished = false;
-            anglerWhoFinishedToday.Clear();
-            LunarApocalypseIsUp = false;
-            //worldID = 0;
-            Kills.Reset();
-            Sights.Reset();
-            Chats.Reset();
-            status.Clear();
-        }
+        
 
     }
 }

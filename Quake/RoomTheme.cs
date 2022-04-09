@@ -11,6 +11,7 @@ namespace Quake
         public TileInfo chair = new TileInfo(TileID.Chairs, 0);
         public TileInfo bench = new TileInfo(TileID.WorkBenches, 0);
         public TileInfo torch = new TileInfo(TileID.Torches, 0);
+        public TileInfo chest = new TileInfo(21, 0);
         public RoomTheme()
         {
         }
@@ -27,6 +28,7 @@ namespace Quake
             th.chair.style = 18;
             th.bench.style = 25;
             th.torch.style = TorchID.White;
+            th.chest.style = 47;
 
             return th;
         }

@@ -54,6 +54,7 @@ namespace Quake
                 return c;
             }
         }
+
         public void InitDefault()
         {
             seeds = new List<string>() {
@@ -64,12 +65,9 @@ namespace Quake
                 "constant"
             };
             keepFTW = true;
-            freezePlayer = true;
-            successTips = $"[i:3611]输入 /wi 查看 世界信息" +
-                $"\n[i:149]输入 /bi 查看 boss进度" +
-                $"\n[i:50]输入 /spawn 回出生点" +
-                $"\n[i:3199]输入 /home 回家";
+            freezePlayer = false;
             freezeBuffs = new List<int>() { 156, 163 };
+            successTips = $"[i:50]输入 /spawn 回出生点\n[i:3199]输入 /home 回家";
         }
     }
 

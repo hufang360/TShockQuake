@@ -217,6 +217,7 @@ namespace Quake
         private static Task AsyncGenerateWorld(int seed)
         {
             isTaskRunning = true;
+            ClearSomething();
             WorldGen.clearWorld();
             return Task.Run(() => GenerateWorld(seed)).ContinueWith((d) => GenWorldAfter());
         }
@@ -226,6 +227,36 @@ namespace Quake
             // 自动创建房间
             if (Config.autoCreateRoom)
                 GenRooms(Main.spawnTileX, Main.spawnTileY - 4, townNPCTotal, true, true);
+        }
+        private static void ClearSomething()
+        {
+            for (int i = 0; i < Main.maxItems; i++)
+            {
+                if (Main.item[i].active)
+                {
+                    Main.item[i].active = false;
+                    TSPlayer.All.SendData(PacketTypes.ItemDrop, "", i);
+                }
+            }
+
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                if (Main.npc[i].active)
+                {
+                    Main.npc[i].active = false;
+                    Main.npc[i].type = 0;
+                    TSPlayer.All.SendData(PacketTypes.NpcUpdate, "", i);
+                }
+            }
+            for (int i = 0; i < Main.maxProjectiles; i++)
+            {
+                if (Main.projectile[i].active)
+                {
+                    Main.projectile[i].active = false;
+                    Main.projectile[i].type = 0;
+                    TSPlayer.All.SendData(PacketTypes.ProjectileNew, "", i);
+                }
+            }
         }
 
         /// <summary>
@@ -250,6 +281,7 @@ namespace Quake
             TSPlayer.All.SendSuccessMessage(text);
             Console.WriteLine(text);
 
+
             // 重新生成月亮事件
             if (WorldHelper.LunarApocalypseIsUp)
             {
@@ -271,6 +303,9 @@ namespace Quake
             }
             FinishGen();
             InformPlayers();
+
+            // 复活NPC
+            NPCHelper.Relive();
         }
         #endregion
 
@@ -350,14 +385,18 @@ namespace Quake
         public static void GenRooms(int posX, int posY, int total, bool isRight = true, bool needCenter = false)
         {
             int w = 5;
-            int roomWidth = 1 + total * w;
+            int row = 6;
+            int roomWidth = 1 + Math.Min(row, total) * w;
 
-            int startX = needCenter ? posX - (roomWidth / 2) : posX;
-            Console.WriteLine($"npctotal:{total} posX:{posX} posY:{posY} startX:{startX}");
+            int fixPosX = needCenter ? posX - (roomWidth / 2) : posX;
+            int startX;
+            int startY;
+            Console.WriteLine($"房间数:{total} posX:{posX} posY:{posY} startX:{fixPosX}");
             for (int i = 0; i < total; i++)
             {
-                GenRoom(startX, posY, isRight);
-                startX += w;
+                startX = fixPosX + i % row * w;
+                startY = posY - (int)Math.Floor((float)(i / row)) * 10;
+                GenRoom(startX, startY, isRight);
             }
         }
 
@@ -371,6 +410,7 @@ namespace Quake
             TileInfo chair = th.chair;
             TileInfo bench = th.bench;
             TileInfo torch = th.torch;
+            TileInfo chest = th.chest;
 
             int Xstart = posX;
             int Ystart = posY;
@@ -427,6 +467,7 @@ namespace Quake
 
                 // 火把
                 WorldGen.PlaceTile(Xstart + 4, Ystart - 5, torch.type, false, true, -1, torch.style);
+
             }
             else
             {
@@ -435,6 +476,9 @@ namespace Quake
                 WorldGen.PlaceTile(Xstart + 1, Ystart - 5, torch.type, false, true, -1, torch.style);
             }
 
+            // 箱子
+            WorldGen.PlaceChest(Xstart + 1, Ystart - 2, 21, false, chest.style);
+            WorldGen.PlaceChest(Xstart + 3, Ystart - 2, 21, false, chest.style);
             InformPlayers();
         }
 

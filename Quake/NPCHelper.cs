@@ -97,10 +97,8 @@ namespace Quake
 
             for (int i = 0; i < Main.maxNPCs; i++)
             {
-                if (!Main.npc[i].active || !Main.npc[i].townNPC)
-                    continue;
-
-                found.Remove(Main.npc[i].type);
+                if (Main.npc[i].active && !Main.npc[i].townNPC)
+                    found.Remove(Main.npc[i].type);
             }
 
             // 生成npc
