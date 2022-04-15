@@ -1,17 +1,18 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
-
 
 namespace Quake
 {
     [ApiVersion(2, 1)]
     public class Quake : TerrariaPlugin
     {
-
         # region Plugin Info
         public override string Name => "Quake";
         public override string Description => "大地动";
@@ -19,6 +20,7 @@ namespace Quake
         public override Version Version => Assembly.GetExecutingAssembly().GetName().Version;
         #endregion
 
+        readonly string SaveDir = Path.Combine(TShock.SavePath, "Quake");
 
         public Quake(Main game) : base(game)
         {
@@ -30,10 +32,16 @@ namespace Quake
             ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
             ServerApi.Hooks.NpcKilled.Register(this, OnNpcKill);
             ServerApi.Hooks.GameUpdate.Register(this, OnGameUpdate);
+            ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin);
+
+            ConfigHelper.SaveFile = Path.Combine(SaveDir, "config.json");
+            WorldHelper.SaveFile = Path.Combine(SaveDir, "record.json");
+            WorldHelper.SaveDir = SaveDir;
+            BackupHelper.BackupPath = Path.Combine(SaveDir, "backups");
+            if (!Directory.Exists(SaveDir)) Directory.CreateDirectory(SaveDir);
 
             ConfigHelper.Init();
-            BackupHelper.Init();
-            ReGenHelper.Init();
+            WorldHelper.Init();
         }
 
         #region  command
@@ -43,10 +51,14 @@ namespace Quake
             void ShowHelpText()
             {
                 op.SendInfoMessage("/quake trigger，触发大地动");
-                op.SendInfoMessage("/quake room <数量>，生成玻璃小房间");
-                op.SendInfoMessage("/quake spawnroom，出生点玻璃小套间");
-                op.SendInfoMessage("/quake freeze，全员禁足");
-                op.SendInfoMessage("/quake size <1/2/3>，设置创建世界的大小");
+                op.SendInfoMessage("/quake room <数量>，玻璃小房间");
+                op.SendInfoMessage("/quake hotel，NPC小旅馆");
+                op.SendInfoMessage("/quake hell，地狱直通车");
+                op.SendInfoMessage("/quake ic [txt]，导入箱子 ic=ImportChest");
+                op.SendInfoMessage("/quake report，搬家报告");
+                op.SendInfoMessage("/quake backup，[测试]备份世界属性");
+                op.SendInfoMessage("/quake recover，[测试]恢复世界属性");
+                op.SendInfoMessage("/quake clear，[测试]清空世界");
                 op.SendInfoMessage("/quake reload，[测试]重新读取boss进度");
             }
 
@@ -66,6 +78,18 @@ namespace Quake
                     ShowHelpText();
                     return;
 
+                // 触发大地动
+                case "trigger":
+                case "t":
+                    if (!op.RealPlayer)
+                    {
+                        op.SendErrorMessage("本命令需在游戏内执行！");
+                        return;
+                    }
+                    if (!utils.TryParseInt(args.Parameters, 1, out num)) num = ConfigHelper.Con.quakeDelay;
+                    ReGen.Trigger(num);
+                    return;
+
                 // 使用种子创建
                 case "seed":
                     if (args.Parameters.Count > 1)
@@ -73,143 +97,185 @@ namespace Quake
                         args.Parameters.RemoveAt(0);
                         string seed = string.Join(" ", args.Parameters);
                         Console.WriteLine(seed);
-                        ReGenHelper.GenWorld(seed);
+                        ReGen.GenWorldBefore(seed);
                     }
                     else
                     {
-                        ReGenHelper.GenWorld(ConfigHelper.GetRandomSeed);
+                        ReGen.GenWorldBefore(ConfigHelper.GetRandomSeed);
                     }
                     return;
 
-
-                // 触发大地动
-                case "trigger":
-                    if (args.Parameters.Count > 1)
-                        if (!int.TryParse(args.Parameters[1], out num)) num = 30;
-                    else
-                        num = 30;
-                    ReGenHelper.Trigger(num);
-                    return;
 
                 // 玻璃小房间
                 case "room":
-                    int total = 3;
-                    if (args.Parameters.Count > 1)
+                    int total;
+                    if (!utils.TryParseInt(args.Parameters, 1, out total))
                     {
-                        if (!int.TryParse(args.Parameters[1], out total))
-                        {
-                            op.SendErrorMessage("输入的房间数量不对");
-                            return;
-                        }
-                        if (total < 1 || total > 1000)
-                        {
-                            total = 3;
-                        }
+                        op.SendErrorMessage("输入的房间数量不对");
+                        return;
                     }
+                    if (total < 1 || total > 1000) total = 3;
                     isRight = op.TPlayer.direction != -1;
                     int tryX = isRight ? op.TileX : op.TileX;
                     int tryY = op.TileY + 4;
-                    await (ReGenHelper.AsyncGenRoom(tryX, tryY, total, isRight, true));
+                    await ReGen.AsyncGenRoom(tryX, tryY, total, isRight, true);
+                    op.SendSuccessMessage($"已创建 {total}个小房间");
+                    ReGen.FinishGen();
+                    ReGen.InformPlayers();
                     return;
 
                 // 出生点小套间
-                case "spawnroom":
-                    int npcTotal = NPCHelper.CountTownNPC();
-                    await (ReGenHelper.AsyncGenRoom(Main.spawnTileX, Main.spawnTileY - 4, npcTotal, true, true));
+                case "hotel":
+                    await (ReGen.AsyncGenRoom(Main.spawnTileX, Main.spawnTileY - 5, Math.Max(3, NPCHelper.CoundHotelRooms()), true, true, true));
+                    ReGen.FinishGen();
+                    ReGen.InformPlayers();
+                    op.SendSuccessMessage("创建NPC小旅馆结束");
                     return;
 
-                // 全员禁足
-                case "freeze":
-                    ReGenHelper.FreezePlayer(30);
+                // 地狱直通车
+                case "hell":
+                    await (ReGen.AsyncGenHellevator(Main.spawnTileX, Main.spawnTileY));
+                    ReGen.FinishGen();
+                    ReGen.InformPlayers();
+                    op.SendSuccessMessage("创建地狱直通车结束");
                     return;
 
-
-                // 配置重建世界的大小
-                case "size":
-                    int size = ConfigHelper.Config.size;
-                    if (args.Parameters.Count == 1)
+                // 备份世界状态
+                case "backup":
+                    if( args.Parameters.Count>1)
                     {
-                        string sizeStr;
-                        if (size == 1)
-                            sizeStr = "配置重建 小 世界";
-                        else if (size == 2)
-                            sizeStr = "配置重建 中 世界";
-                        else if (size == 3)
-                            sizeStr = "配置重建 大 世界";
-                        else
-                            sizeStr = "配置的数值不正确！";
-                        op.SendInfoMessage(sizeStr);
+                        args.Parameters.RemoveAt(0);
+                        BackupHelper.BackNotes = string.Join("", args.Parameters[1]);
                     }
+                    ReGen.Backup();
+                    op.SendSuccessMessage("备份世界完成");
+                    break;
+
+                // 复原世界状态
+                case "recover":
+                    await ReGen.AsyncRecover();
+                    op.SendSuccessMessage("复原世界完成");
+                    break;
+
+                // 搬家报告
+                case "report":
+                    ReGen.Report();
+                    break;
+
+                // 导入箱子
+                case "ic": ImportChest(args); break;
+
+                #region 清空区域
+                case "clear":
+                case "c":
+                    bool clearAll = false;
+                    Rectangle rect = new Rectangle(op.TileX - 61, op.TileY - 34, 122, 68);
+                    if (args.Parameters.Count > 1)
+                    {
+                        if (args.Parameters[1].ToLowerInvariant() == "all") clearAll = true;
+                        else if (int.TryParse(args.Parameters[1], out num)) rect.X = op.TileX - Math.Abs(num);
+                    }
+                    if (utils.TryParseInt(args.Parameters, 2, out num)) rect.Y = op.TileY - Math.Abs(num);
+                    if (utils.TryParseInt(args.Parameters, 3, out num)) rect.Width = op.TileX - rect.X + Math.Abs(num);
+                    if (utils.TryParseInt(args.Parameters, 4, out num)) rect.Height = op.TileY - rect.Y + Math.Abs(num);
+                    await ReGen.AsyncClearArea(rect, new Point(op.TileX, op.TileY + 3), clearAll);
+                    if (clearAll)
+                        op.SendSuccessMessage("已清空全图");
                     else
-                    {
-                        if (int.TryParse(args.Parameters[1], out int size2))
-                        {
-                            string sizeStr;
-                            if (size == 1)
-                                sizeStr = "已配置重建 小 世界";
-                            else if (size == 2)
-                                sizeStr = "已配置重建 中 世界";
-                            else if (size == 3)
-                                sizeStr = "已配置重建 大 世界";
-                            else
-                                sizeStr = "所配置的数值不正确！";
-                            op.SendInfoMessage(sizeStr);
-
-                            ConfigHelper.Config.size = size2;
-                            ConfigHelper.Save();
-                        }
-                        else
-                        {
-                            op.SendInfoMessage("请输入 /quake size <1/2/3>");
-                        }
-                    }
-                    return;
+                        op.SendSuccessMessage("已清空指定区域");
+                    ReGen.InformPlayers();
+                    break;
+                #endregion
 
 
+                // 重载配置
                 case "reload":
                     BossList.Clear();
-                    ReGenHelper.Reset();
+                    ReGen.Reset();
                     ConfigHelper.Reload();
-                    op.SendSuccessMessage("已重新读取boss进度");
+                    WorldHelper.Reload();
+                    op.SendSuccessMessage("已重读boss进度 和 配置文件");
                     return;
             }
         }
         #endregion
 
-        #region OnGameUpdate
-        private void OnGameUpdate(EventArgs args)
+        #region 导入箱子
+        private void ImportChest(CommandArgs args)
         {
-            ReGenHelper.OnGameUpdate();
+            TSPlayer op = args.Player;
+
+            bool needTxt = utils.TryParseString(args.Parameters, 1) == "txt";
+
+            // 生成示例文件
+            string path = Path.Combine(SaveDir, "chest.txt");
+            NetItem[] items;
+            if (needTxt)
+            {
+                items = new NetItem[40];
+                items[0] = new NetItem(-15, 1, 0);
+                items[1] = new NetItem(-13, 1, 0);
+                items[2] = new NetItem(-16, 1, 0);
+                WorldHelper.SaveChestTxt(string.Join("~", items));
+                op.SendErrorMessage($"已生成示例文件 chest.txt");
+                return;
+            }
+
+            if (!op.RealPlayer)
+            {
+                op.SendErrorMessage("本命令需在游戏内执行！");
+                return;
+            }
+            int chestIndex = Main.player[op.Index].chest;
+            if (chestIndex == -1)
+            {
+                op.SendErrorMessage("请先打开一个箱子，然后再执行本指令！");
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                op.SendErrorMessage($"导入箱子里的物品失败，找不到 {path} 文件，输入 /quake chest txt 可以生成示例文件");
+                return;
+            }
+
+
+            // 导入箱子
+            string text = File.ReadAllText(path).Trim('"').Trim('\n').Trim('\r');
+            if (!text.Contains("~"))
+            {
+                op.SendErrorMessage($"chest.txt 里的内容格式不对，输入 /quake chest txt 生成示例文件");
+                return;
+            }
+
+            items = text.Split('~').Select(NetItem.Parse).ToArray();
+            Chest ch = Main.chest[chestIndex];
+
+            int count = 0;
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i >= 40)
+                    continue;
+                NetItem nItem = items[i];
+                if (nItem.NetId == 0) continue;
+                ch.item[i] = utils.NetItemToItem(nItem);
+                NetMessage.TrySendData(32, op.Index, -1, null, chestIndex, i);
+                count++;
+            }
+            op.SendSuccessMessage($"操作完成，共导入 {count} 个物品!");
         }
         #endregion
 
-        #region OnNpcSpawn & OnNpcKill
+        #region event
+        private void OnGameUpdate(EventArgs args) { ReGen.OnGameUpdate(); }
+        private void OnServerJoin(JoinEventArgs args) { if (ReGen.NeedKick) TShock.Players[args.Who].Disconnect("世界正在重建，请稍等2分钟！"); }
+
         private readonly Dictionary<int, bool> BossList = new Dictionary<int, bool>();
-        private readonly List<int> BossIDs = new List<int>(){
-            50, // 史莱姆王
-            4, // 克苏鲁之眼
-            13,14,15, // 世界吞噬怪
-            266, // 克苏鲁之脑
-            222, // 蜂王
-            35, // 骷髅王
-            668, // 鹿角怪
-            113, // 血肉墙
-            134,135,136, // 毁灭者
-            125,126, // 双子 激光眼 魔焰眼
-            127, // 机械骷髅王
-            262, // 世纪之花
-            245, // 石巨人
-            657, // 史莱姆皇后
-            636, // 光之女皇
-            370, // 猪龙鱼公爵
-            439 // lc
-        };
         private void OnNpcSpawn(NpcSpawnEventArgs args)
         {
             NPC npc = Main.npc[args.NpcId];
             int id = npc.netID;
-            if (!BossIDs.Contains(id))
-                return;
+            if (!NPCHelper.BossIDs.Contains(id)) return;
 
             Console.WriteLine($"OnNpcSpawn: npcID:{id} downed:{NPCHelper.CheckBossDowned(id)} {npc}");
             if (BossList.ContainsKey(id))
@@ -229,7 +295,7 @@ namespace Quake
             {
                 BossList[id] = true;
 
-                if (!ReGenHelper.isTaskRunning)
+                if (!ReGen.isTaskRunning)
                 {
                     if (id == 439)
                     {
@@ -239,12 +305,6 @@ namespace Quake
 
                         WorldHelper.LunarApocalypseIsUp = true;
 
-                        // NPC.TowerActiveVortex = (NPC.TowerActiveNebula = (NPC.TowerActiveSolar = (NPC.TowerActiveStardust = false)));
-                        // // NPC.LunarApocalypseIsUp = false;
-                        // NPC.ShieldStrengthTowerSolar = (NPC.ShieldStrengthTowerVortex = (NPC.ShieldStrengthTowerNebula = (NPC.ShieldStrengthTowerStardust = 0)));
-                        // NetMessage.SendData(101);
-                        // Console.WriteLine("101");
-
                         List<int> towers = new List<int>() { 517, 422, 507, 493 };
                         foreach (int id2 in towers)
                         {
@@ -253,8 +313,10 @@ namespace Quake
                                 NetMessage.SendData(23, -1, -1, null, index);
                         }
                     }
+                    //获得进度备注
+                    BackupHelper.BackNotes = NPCHelper.GetBossInfoNote(id);
                     // 触发大地动
-                    ReGenHelper.Trigger();
+                    ReGen.Trigger(ConfigHelper.Con.quakeDelay);
                 }
             }
         }
@@ -268,8 +330,7 @@ namespace Quake
                 ServerApi.Hooks.NpcSpawn.Deregister(this, OnNpcSpawn);
                 ServerApi.Hooks.NpcKilled.Deregister(this, OnNpcKill);
                 ServerApi.Hooks.GameUpdate.Deregister(this, OnGameUpdate);
-                BossList.Clear();
-                BossIDs.Clear();
+                ServerApi.Hooks.ServerJoin.Deregister(this, OnServerJoin);
             }
             base.Dispose(disposing);
         }

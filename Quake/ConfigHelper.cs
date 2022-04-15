@@ -1,17 +1,18 @@
+using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using TShockAPI;
-
+using Terraria;
 
 namespace Quake
 {
-    /// <summary>
-    /// 配置文件
-    /// </summary>
     public class Config
     {
+        // 地震延迟（秒）
+        public int quakeDelay = 30;
+
         // 地图可选种子
         public List<string> seeds;
 
@@ -19,23 +20,27 @@ namespace Quake
         public int size = 0;
 
         // 保留彩蛋特性
-        public bool keepFTW;
+        public bool keepFTW = true;
         public bool keepNTB;
         public bool keepDST;
         public bool keep2020;
         public bool keep2021;
 
+        // 创建世界时踢出玩家
+        public bool kickGen;
+
         // 地图创建成功提示
         public string successTips;
 
         // 自动创建出生点小套间
-        public bool autoCreateRoom;
+        public bool autoCreateRoom = true;
 
-        // 全员禁足
-        public bool freezePlayer;
-        // 禁足buff
-        public List<int> freezeBuffs;
+        // 自动创建地狱直通车（需要击败骷髅王）
+        public bool autoCreateHellevator = true;
 
+        // 搬家区域，x和y是相对于出生点
+        [JsonConverter(typeof(RectangleConverter))]
+        public Rectangle area = new Rectangle(-61, -60, 122, 68);
 
         public static Config Load(string path)
         {
@@ -64,40 +69,25 @@ namespace Quake
                 "not the bees",
                 "constant"
             };
-            keepFTW = true;
-            freezePlayer = false;
-            freezeBuffs = new List<int>() { 156, 163 };
             successTips = $"[i:50]输入 /spawn 回出生点\n[i:3199]输入 /home 回家";
         }
+
+        // 实际的搬家区域
+        public Rectangle GetArea() { return new Rectangle(Main.spawnTileX + area.X, Main.spawnTileY + area.Y, area.Width, area.Height); }
     }
 
-
-
-    // ----
 
     public class ConfigHelper
     {
         private static Config _config;
-        public static readonly string SaveDir = Path.Combine(TShock.SavePath, "Quake");
-        private static readonly string SaveFile = Path.Combine(SaveDir, "config.json");
+        public static string SaveFile;
 
-        public static void Init()
-        {
-            if (!Directory.Exists(SaveDir)) Directory.CreateDirectory(SaveDir);
-            _config = Config.Load(SaveFile);
-        }
+        public static void Init() { Reload(); }
+        public static void Reload() { _config = Config.Load(SaveFile); }
+        public static void Save() { File.WriteAllText(SaveFile, JsonConvert.SerializeObject(_config, Formatting.Indented)); }
+        public static Config Con { get { return _config; } }
 
-        public static void Reload()
-        {
-            _config = Config.Load(SaveFile);
-        }
 
-        public static void Save()
-        {
-            File.WriteAllText(SaveFile, JsonConvert.SerializeObject(_config, Formatting.Indented));
-        }
-
-        public static Config Config { get { return _config; } }
 
         public static string GetRandomSeed
         {
@@ -110,15 +100,45 @@ namespace Quake
                 }
                 else
                 {
-                    int index = rand.Next(Config.seeds.Count);
-                    string seed = Config.seeds[index];
-                    Console.WriteLine($"从配置文件里挑选种子 {seed}");
+                    int index = rand.Next(Con.seeds.Count);
+                    string seed = Con.seeds[index];
+                    utils.Log($"从配置文件里挑选种子 {seed}");
                     return seed;
                 }
             }
         }
-
-        public static void Dispose() { _config = null; }
     }
 
+
+    public class RectangleConverter : JsonConverter
+    {
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            Rectangle rect = (Rectangle)value;
+            JObject.FromObject(new { rect.X, rect.Y, rect.Width, rect.Height }).WriteTo(writer);
+        }
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            var o = JObject.Load(reader);
+
+            var x = GetTokenValue(o, "x") ?? 0;
+            var y = GetTokenValue(o, "y") ?? 0;
+            var width = GetTokenValue(o, "width") ?? 0;
+            var height = GetTokenValue(o, "height") ?? 0;
+
+            return new Rectangle(x, y, width, height);
+        }
+
+        public override bool CanConvert(Type objectType)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static int? GetTokenValue(JObject o, string tokenName)
+        {
+            JToken t;
+            return o.TryGetValue(tokenName, StringComparison.InvariantCultureIgnoreCase, out t) ? (int)t : (int?)null;
+        }
+    }
 }
