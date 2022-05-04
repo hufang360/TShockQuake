@@ -4,12 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Terraria;
-using Terraria.GameContent.Creative;
-using Terraria.GameContent.NetModules;
 using Terraria.ID;
-using Terraria.Net;
 using TShockAPI;
-using static Terraria.GameContent.Creative.CreativePowers;
+
 
 namespace Quake
 {
@@ -176,12 +173,12 @@ namespace Quake
             names = WorldHelper.ListedPylon();
             if (names.Count > 0)
             {
-                texts.Add($"晶塔 {names.Count}个:" +string.Join("\n", utils.BuildLinesFromTerms(names, 20)));
+                texts.Add($"晶塔 {names.Count}个:" + string.Join("\n", utils.BuildLinesFromTerms(names, 20)));
             }
             names = WorldHelper.ListedExtra();
-            if(names.Count > 0)
+            if (names.Count > 0)
             {
-                texts.Add($"其它 {names.Count}个:\n"+string.Join("\n", utils.BuildLinesFromTerms(names, 20)));
+                texts.Add($"其它 {names.Count}个:\n" + string.Join("\n", utils.BuildLinesFromTerms(names, 20)));
             }
             if (texts.Count > 0)
                 TSPlayer.All.SendInfoMessage($"[i:903]搬家清单: \n" + string.Join("\n", texts));
@@ -237,20 +234,6 @@ namespace Quake
                     Main.npc[i].type = 0;
                     TSPlayer.All.SendData(PacketTypes.NpcUpdate, "", i);
                 }
-            }
-        }
-        public static void DoNotSpawnNPC()
-        {
-            for (int i = 0; i < Main.maxPlayers; i++)
-            {
-                TSPlayer p = TShock.Players[i];
-                if (p == null || !p.Active) continue;
-                //GodmodePower power1 = CreativePowerManager.Instance.GetPower<GodmodePower>();
-                //power1.SetEnabledState(p.Index, p.GodMode);
-
-                Main.myPlayer = 0;
-                SpawnRateSliderPerPlayerPower power = CreativePowerManager.Instance.GetPower<SpawnRateSliderPerPlayerPower>();
-                power.PushChangeAndSetSlider(0f);
             }
         }
 
@@ -449,7 +432,7 @@ namespace Quake
                     utils.Log($"未处理 {todoChests[i].name} {todoChests[i].itemstr}");
                     WorldHelper.SaveChestTxt(todoChests[i].itemstr);
                 }
-                TSPlayer.All.SendErrorMessage($"{todoChests.Count-completed}个箱子未处理：\n{string.Join("\n", PaginationTools.BuildLinesFromTerms(names))}\n服主输入/quake ic可快速补录最后一个，更多请手动修改chest.txt");
+                TSPlayer.All.SendErrorMessage($"{todoChests.Count - completed}个箱子未处理：\n{string.Join("\n", PaginationTools.BuildLinesFromTerms(names))}\n服主输入/quake ic可快速补录最后一个，更多请手动修改chest.txt");
             }
         }
         #endregion
@@ -745,43 +728,7 @@ namespace Quake
         }
         #endregion
 
-        #region 清空区域
-        public static Task AsyncClearArea(Rectangle area, Point center, bool ClearAll = false)
-        {
-            isTaskRunning = true;
-            return Task.Run(() => ClearArea(area, center, ClearAll)).ContinueWith((d) => FinishGen());
-        }
-        private static void ClearArea(Rectangle area, Point center, bool ClearAll = false)
-        {
-            if (ClearAll)
-                utils.Log($"清空全图");
-            else
-                utils.Log($"清除区域：{area.X},{area.Y} {area.Width}:{area.Height}, {center.X} {center.Y}");
-            if (ClearAll)
-            {
-                Parallel.For(0, Main.maxTilesX, (cx) =>
-                {
-                    Parallel.For(0, Main.maxTilesY, (cy) =>
-                    {
-                        Main.tile[cx, cy].ClearEverything();
-                    });
-                });
-                return;
-            }
-            Parallel.For(area.X, area.Right, (cx) =>
-            {
-                Parallel.For(area.Y, area.Bottom, (cy) =>
-                {
-                    Main.tile[cx, cy].ClearEverything();
-                });
-            });
 
-            Parallel.For(center.X + 1, center.X + 2, (cx) =>
-            {
-                WorldGen.PlaceTile(cx, center.Y, 19, false, true, -1, 43);
-            });
-        }
-        #endregion
 
         #region 创建完成后
         /// <summary>

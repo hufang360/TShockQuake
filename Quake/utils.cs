@@ -63,10 +63,7 @@ namespace Quake
             }
         }
 
-        public static void Log(string msg)
-        {
-            TShock.Log.ConsoleInfo("[quake]" + msg);
-        }
+        public static void Log(string msg) { TShock.Log.ConsoleInfo("[quake]" + msg); }
 
         public bool InArea(Rectangle area, int x, int y)
         {

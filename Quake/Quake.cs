@@ -58,7 +58,6 @@ namespace Quake
                 op.SendInfoMessage("/quake report，搬家报告");
                 op.SendInfoMessage("/quake backup，[测试]备份世界属性");
                 op.SendInfoMessage("/quake recover，[测试]恢复世界属性");
-                op.SendInfoMessage("/quake clear，[测试]清空世界");
                 op.SendInfoMessage("/quake reload，[测试]重新读取boss进度");
             }
 
@@ -164,28 +163,6 @@ namespace Quake
 
                 // 导入箱子
                 case "ic": ImportChest(args); break;
-
-                #region 清空区域
-                case "clear":
-                case "c":
-                    bool clearAll = false;
-                    Rectangle rect = new Rectangle(op.TileX - 61, op.TileY - 34, 122, 68);
-                    if (args.Parameters.Count > 1)
-                    {
-                        if (args.Parameters[1].ToLowerInvariant() == "all") clearAll = true;
-                        else if (int.TryParse(args.Parameters[1], out num)) rect.X = op.TileX - Math.Abs(num);
-                    }
-                    if (utils.TryParseInt(args.Parameters, 2, out num)) rect.Y = op.TileY - Math.Abs(num);
-                    if (utils.TryParseInt(args.Parameters, 3, out num)) rect.Width = op.TileX - rect.X + Math.Abs(num);
-                    if (utils.TryParseInt(args.Parameters, 4, out num)) rect.Height = op.TileY - rect.Y + Math.Abs(num);
-                    await ReGen.AsyncClearArea(rect, new Point(op.TileX, op.TileY + 3), clearAll);
-                    if (clearAll)
-                        op.SendSuccessMessage("已清空全图");
-                    else
-                        op.SendSuccessMessage("已清空指定区域");
-                    ReGen.InformPlayers();
-                    break;
-                #endregion
 
 
                 // 重载配置
