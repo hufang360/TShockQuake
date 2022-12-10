@@ -1,6 +1,5 @@
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
-using OTAPI.Tile;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -129,7 +128,7 @@ namespace Quake
         public static List<string> ListedChest(bool needRecord = false)
         {
             if (needRecord) Rec.chests.Clear();
-            List<string> names = new List<string>();
+            List<string> names = new();
             Rectangle area = Con.GetArea();
             for (int i = 0; i < Main.chest.Length; i++)
             {
@@ -137,7 +136,7 @@ namespace Quake
                 if (chest == null || string.IsNullOrEmpty(chest.name) || !area.Contains(chest.x, chest.y)) continue;
 
                 int count = 0;
-                ChestData data = new ChestData(chest.name);
+                ChestData data = new(chest.name);
                 for (int k = 0; k < chest.item.Length; k++)
                 {
                     if (chest.item[k] == null || !chest.item[k].active) continue;
@@ -160,7 +159,7 @@ namespace Quake
         }
         public static List<string> ListedPylon(bool needRecord = false)
         {
-            List<int> ids = new List<int>();
+            List<int> ids = new();
             foreach (TeleportPylonInfo pylon in Main.PylonSystem.Pylons)
             {
                 switch (pylon.TypeOfPylon)
@@ -179,11 +178,11 @@ namespace Quake
 
             if (needRecord)
             {
-                List<string> logs = new List<string>();
+                List<string> logs = new();
                 Rec.pylons.Clear();
                 if (ids.Count > 0)
                 {
-                    ChestData data = new ChestData("晶塔");
+                    ChestData data = new("晶塔");
                     for (int k = 0; k < ids.Count; k++)
                     {
                         data.AddItem(k, ids[k], 1, 0);
@@ -198,7 +197,7 @@ namespace Quake
                 }
             }
 
-            List<string> texts = new List<string>();
+            List<string> texts = new();
             foreach (var id in ids)
             {
                 texts.Add($"[i:{id}]");
@@ -211,8 +210,8 @@ namespace Quake
             TileHelper.ResetSkip();
 
             Rectangle area = Con.GetArea();
-            Dictionary<int, int> found = new Dictionary<int, int>();
-            
+            Dictionary<int, int> found = new();
+
             void addToDict(int _id, int _stack = 1)
             {
                 if (found.Keys.Contains(_id))
@@ -277,10 +276,10 @@ namespace Quake
                 }
             }
 
-            List<Item> items = new List<Item>();
+            List<Item> items = new();
             foreach (int id in found.Keys)
             {
-                Item item = new Item();
+                Item item = new();
                 item.SetDefaults(id);
 
                 int stack = found[id];
@@ -311,11 +310,11 @@ namespace Quake
 
 
             if (needRecord) Rec.extras.Clear();
-            List<string> texts = new List<string>();
-            List<string> logs = new List<string>();
+            List<string> texts = new();
+            List<string> logs = new();
             int count = 0;
             int index = 0;
-            ChestData data = new ChestData("其它");
+            ChestData data = new("其它");
             Rec.extras.Add(data);
             foreach (Item item in items)
             {
@@ -477,13 +476,13 @@ namespace Quake
 
         public int worldID = 0;
 
-        public List<ChestData> chests = new List<ChestData>();
-        public List<ChestData> pylons = new List<ChestData>();
-        public List<ChestData> extras = new List<ChestData>();
-        public List<int> npcs = new List<int>();
-        public Dictionary<string, int> kills = new Dictionary<string, int>();
-        public List<string> sights = new List<string>();
-        public List<string> chats = new List<string>();
+        public List<ChestData> chests = new();
+        public List<ChestData> pylons = new();
+        public List<ChestData> extras = new();
+        public List<int> npcs = new();
+        public Dictionary<string, int> kills = new();
+        public List<string> sights = new();
+        public List<string> chats = new();
 
         public static WorldInfo Load(string path)
         {

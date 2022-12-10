@@ -359,19 +359,22 @@ namespace Quake
                 int y = Main.spawnTileY;
                 int h = 5;
                 List<Point> chests2 = new List<Point>();
+
                 Parallel.For(x, x + w, (cx) =>
                 {
-                    if (trees.Contains(Main.tile[cx - 1, y].type))
-                        WorldGen.KillTile(cx - 1, y, noItem: true);
-                    if (trees.Contains(Main.tile[cx + w + 1, y].type))
-                        WorldGen.KillTile(cx + w + 1, y, noItem: true);
-
                     Parallel.For(y - h, y, (cy) =>
                     {
                         // 清空区域
                         Main.tile[cx, cy].ClearEverything();
                     });
+                    if (trees.Contains(Main.tile[cx - 1, y].type))
+                        Main.tile[cx - 1, y].ClearEverything();
+                    if (trees.Contains(Main.tile[cx + w + 1, y].type))
+                        Main.tile[cx + w + 1, y].ClearEverything();
+                });
 
+                Parallel.For(x, x + w, (cx) =>
+                {
 
                     // 平台
                     WorldGen.PlaceTile(cx, y - 3, 19, false, true, -1, 14);
@@ -562,7 +565,7 @@ namespace Quake
                     Main.tile[cx, Ystart + 5].halfBrick(false);
 
                     if (trees.Contains(Main.tile[cx, Ystart + 6].type))
-                        WorldGen.KillTile(cx, Ystart + 6, noItem: true);
+                        Main.tile[cx, Ystart + 6].ClearEverything();
                 });
             }
         }
@@ -589,9 +592,8 @@ namespace Quake
             Parallel.For(Xstart, Xstart + Width, (cx) =>
             {
                 if (trees.Contains(Main.tile[cx, Ystart - height - 1].type))
-                    WorldGen.KillTile(cx, Ystart - height - 1, noItem: true);
-                if (trees.Contains(Main.tile[cx, Ystart + 1].type))
-                    WorldGen.KillTile(cx, Ystart + 1, noItem: true);
+                    Main.tile[cx, Ystart - height - 1].ClearEverything();
+
                 Parallel.For(Ystart - height, Ystart, (cy) =>
                 {
                     // 清空区域
@@ -699,12 +701,16 @@ namespace Quake
             {
                 Parallel.For(Ystart, hell, (cy) =>
                 {
+                    Main.tile[cx, cy].ClearEverything();
+
                     if (trees.Contains(Main.tile[cx, cy - 1].type))
-                        WorldGen.KillTile(cx, cy - 1, noItem: true);
-
-                    if (Main.tile[cx, cy].active())
-                        WorldGen.KillTile(cx, cy, false, false, true);
-
+                        Main.tile[cx, cy - 1].ClearEverything();
+                });
+            });
+            Parallel.For(Xstart, Xstart + Width, (cx) =>
+            {
+                Parallel.For(Ystart, hell, (cy) =>
+                {
                     if (cx == Xstart + Width / 2)
                     {
                         Main.tile[cx, cy].type = TileID.SilkRope;

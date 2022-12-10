@@ -50,8 +50,8 @@ namespace Quake
 
 				TShock.Log.Info("[quake]正在备份地图...");
 
-				SaveManager.Instance.SaveWorld();
-				Console.WriteLine("World backed up.");
+                TShock.Utils.SaveWorld();
+                Console.WriteLine("World backed up.");
 				Console.ForegroundColor = ConsoleColor.Gray;
 				TShock.Log.Info(string.Format("World backed up ({0}).", Main.worldPathName));
 
